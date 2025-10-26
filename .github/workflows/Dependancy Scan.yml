@@ -1,9 +1,11 @@
 name: SBOM and Image Security Scan
 
 on:
+  workflow_call: # Called by main pipeline
+  workflow_dispatch: # Can be triggered manually
   push:
-    branches: [ "master" ]
-  pull_request:
+    branches:
+      - feature/hoang_anh
 
 jobs:
   sast-with-sonarqube:
