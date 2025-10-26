@@ -58,10 +58,20 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             echo "🚀 Deploying to EC2..."
+
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            # Pull latest image
             docker pull dinhtrkien/owasp-juice-shop:latest
+
+            # Stop and remove old container
             docker stop juice-shop || true
             docker rm juice-shop || true
+
+            # Run new container
             docker run -d --name juice-shop -p 80:3000 dinhtrkien/owasp-juice-shop:latest
+
             echo "✅ Container started successfully"
 
       # - name: Health check
