@@ -10,15 +10,6 @@ on:
         description: "Deployment environment (staging or production)"
         required: true
         type: string
-  workflow_dispatch: # Can be triggered manually
-    inputs:
-      environment:
-        description: "Deployment environment"
-        required: true
-        type: choice
-        options:
-          - staging
-          - production
   push:
     branches:
       - feature/kien
@@ -27,7 +18,7 @@ env:
   NODE_VERSION: 22
 
 jobs:
-  deploy-to-aws:
+  deploy-to-aws-ec2:
     name: "Deploy to AWS ${{ inputs.environment || 'staging' }}"
     runs-on: ubuntu-latest
     environment:
@@ -42,93 +33,58 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          echo "🐳 Building Docker image..."
+          docker build -t dinhtrkien/owasp-juice-shop:latest \
+                       -t dinhtrkien/owasp-juice-shop:${{ github.sha }} \
+                       -t dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }} .
+
+      - name: Push image to Docker Hub
+        run: |
+          echo "📤 Pushing Docker image to Docker Hub..."
+          docker push dinhtrkien/owasp-juice-shop:latest
+          docker push dinhtrkien/owasp-juice-shop:${{ github.sha }}
+          docker push dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }}
+
+      - name: SSH to EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.0
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🚀 Deploying to EC2..."
+            docker pull dinhtrkien/owasp-juice-shop:latest
+            docker stop juice-shop || true
+            docker rm juice-shop || true
+            docker run -d --name juice-shop -p 80:3000 dinhtrkien/owasp-juice-shop:latest
+            echo "✅ Container started successfully"
 
-      # Option 1: Deploy to EC2 via SSH
-      - name: Deploy to EC2 (if using EC2)
-        if: secrets.EC2_HOST != ''
-        run: |
-          echo "🚀 Deploying to AWS EC2"
-          echo "Environment: ${{ inputs.environment || 'staging' }}"
+      # - name: Health check
+      #   run: |
+      #     echo "🏥 Performing health check..."
+      #     sleep 10
 
-          # Install SSH key
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+      #     # Check if deployment is healthy
+      #     DEPLOY_URL="${{ inputs.environment == 'production' && secrets.PROD_URL || secrets.STAGING_URL }}"
 
-          # Deploy via SSH
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
-            cd /app/juice-shop
-            git pull origin ${{ github.ref_name }}
-            npm install --production
-            npm run build:server
-            pm2 restart juice-shop || pm2 start build/app.js --name juice-shop
-          EOF
+      #     if [ ! -z "$DEPLOY_URL" ]; then
+      #       curl -f $DEPLOY_URL/rest/admin/application-version || echo "⚠️ Health check needs configuration"
+      #     fi
 
-          echo "✅ Deployment to EC2 completed"
-
-      # Option 2: Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk (if using EB)
-        if: secrets.EB_APPLICATION_NAME != ''
-        run: |
-          echo "🚀 Deploying to AWS Elastic Beanstalk"
-
-          # Create deployment package
-          zip -r deploy.zip . -x "*.git*" "node_modules/*" "frontend/node_modules/*"
-
-          # Deploy to EB
-          aws elasticbeanstalk create-application-version \
-            --application-name ${{ secrets.EB_APPLICATION_NAME }} \
-            --version-label ${{ github.sha }} \
-            --source-bundle S3Bucket=${{ secrets.S3_BUCKET }},S3Key=deploy.zip
-
-          aws elasticbeanstalk update-environment \
-            --application-name ${{ secrets.EB_APPLICATION_NAME }} \
-            --environment-name ${{ inputs.environment || 'staging' }} \
-            --version-label ${{ github.sha }}
-
-          echo "✅ Deployment to Elastic Beanstalk initiated"
-
-      # Option 3: Deploy to App Runner (simplest)
-      - name: Deploy to App Runner (if using App Runner)
-        if: secrets.APP_RUNNER_ARN != ''
-        run: |
-          echo "🚀 Deploying to AWS App Runner"
-
-          # App Runner deploys from container registry
-          # Build and push container
-          docker build -t juice-shop:${{ github.sha }} .
-
-          # Tag and push to ECR
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
-          docker tag juice-shop:${{ github.sha }} ${{ secrets.ECR_REGISTRY }}/juice-shop:latest
-          docker push ${{ secrets.ECR_REGISTRY }}/juice-shop:latest
-
-          echo "✅ Container pushed to ECR - App Runner will auto-deploy"
-
-      - name: Health check
-        run: |
-          echo "🏥 Performing health check..."
-          sleep 10
-
-          # Check if deployment is healthy
-          DEPLOY_URL="${{ inputs.environment == 'production' && secrets.PROD_URL || secrets.STAGING_URL }}"
-
-          if [ ! -z "$DEPLOY_URL" ]; then
-            curl -f $DEPLOY_URL/rest/admin/application-version || echo "⚠️ Health check needs configuration"
-          fi
-
-          echo "✅ Deployment health check completed"
+      #     echo "✅ Deployment health check completed"
 
       - name: Post deployment summary
         run: |
           echo "📊 Deployment Summary"
+          echo "===================="
           echo "Environment: ${{ inputs.environment || 'staging' }}"
+          echo "Docker Image: dinhtrkien/owasp-juice-shop:latest"
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
           echo "Deployed by: ${{ github.actor }}"
+          echo "===================="
