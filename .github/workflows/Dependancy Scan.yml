@@ -32,14 +32,14 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     
   sca-with-snyk:
-    name: SCA Synk Scan
-    runs-on: ubuntu-latest
-    permissions: 
+    name: Snyk Dependency Scan (SCA)
+    runs-on: self-hosted # hoặc ubuntu-latest
+    permissions:
       contents: read
       security-events: write
-    
+
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -47,24 +47,30 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-      
-      - name: Install Dependancy
-        run: npm ci --legacy-peer-deps
-      
+
+ 
+      - name: Force regenerate package-lock.json and Install
+        run: |
+          echo "Forcing regeneration of package-lock.json to ensure consistency..."
+          rm -f package-lock.json
+          npm install --legacy-peer-deps
+
+
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
         continue-on-error: true
-        env: 
+        env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with: 
-          command: test
-          args: --sarif-file-output=snyk.sarif
-        
-      - name: Upload result to Github Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        if: success()
         with:
-          sarif_file: snyk.sarif
+          command: test
+          args: --sarif-file-output=snyk-sca-results.sarif
+      
+      - name: Upload Snyk SCA scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          category: snyk-sca-scan
+          sarif_file: snyk-sca-results.sarif
 
 
   build-and-push:
