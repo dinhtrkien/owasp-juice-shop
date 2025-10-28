@@ -8,31 +8,41 @@ on:
       - feature/hoang_anh
 
 jobs:
-  sast-with-sonarqube:
-    name: SAST Sonarqube Scan
+ sca-with-snyk:
+    name: SCA Synk Scan
     runs-on: ubuntu-latest
+    permissions: 
+      contents: read
+      security-events: write
     
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          fetch-depth: 0
-
-      - name: Run SonarQube to Scan vulnerabilities 
-        uses: sonarsource/sonarqube-scan-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          continue-on-erro: true
-
-      - name: SonarQube Quality Gate check
-        uses: sonarsource/sonarqube-quality-gate-action@master
-        timeout-minutes: 10
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: Install Dependancy
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
         env: 
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with: 
+          command: test
+          args: --sarif-file-output=snyk.sarif
+        
+      - name: Upload result to Github Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: success()
+        with:
+          sarif_file: snyk.sarif
 
-  # ------ JOB 3: QUÉT VỚI OWASP DEPENDENCY-CHECK ------
   owasp-dependency-check:
     name: OWASP Dependency-Check Scan
     runs-on: ubuntu-latest
