@@ -8,7 +8,7 @@ on:
       - feature/hoang_anh
 
 jobs:
- sca-with-snyk:
+  sca-with-snyk:
     name: SCA Synk Scan
     runs-on: ubuntu-latest
     permissions: 
