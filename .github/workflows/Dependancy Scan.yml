@@ -68,30 +68,20 @@ jobs:
         uses: dependency-check/Dependency-Check_Action@main
         # continue-on-error: true # Bật nếu bạn muốn workflow tiếp tục dù có lỗi
         with:
-          project: 'juice-shop'
+          project: ${{ github.event.repository.name }}
           path: '.' 
           format: 'SARIF'
           # Các đối số loại trừ để tránh lỗi với các tệp "bẫy"
-          args: '--exclude "**/frontend/dist/**" --exclude "**/ftp/**"'
-      
-      - name: Upload OWASP results to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() # Dùng always() vì DepCheck có thể fail nếu tìm thấy lỗi
-        with:
-          category: owasp-dependency-check
-          sarif_file: ${{ steps.DepCheck.outputs.sarif_file }}
-      
-      - name: Upload OWASP Dependency-Check results
+          args: --exclude "**/frontend/dist/**" --exclude "**/ftp/**"
+  
+      - name: Upload OWASP results
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           category: owasp-dependency-check
           sarif_file: ${{ steps.DepCheck.outputs.sarif_file }}
-
-      - name: Upload HTML report as an artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: owasp-dependency-check-report
-          path: ${{ steps.DepCheck.outputs.html_file }}
+      
+      
 
   generate-sbom:
     name: Generate SBOM
