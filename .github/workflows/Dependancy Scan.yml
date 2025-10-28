@@ -69,10 +69,10 @@ jobs:
         # continue-on-error: true # Bật nếu bạn muốn workflow tiếp tục dù có lỗi
         with:
           project: 'juice-shop'
-          scan: '.' 
+          path: '.' 
           format: 'SARIF'
           # Các đối số loại trừ để tránh lỗi với các tệp "bẫy"
-          scan-args: >-
+          args: >-
             --exclude "**/frontend/dist/**"
             --exclude "**/ftp/**"
             --node-audit-analyzer-enabled false
