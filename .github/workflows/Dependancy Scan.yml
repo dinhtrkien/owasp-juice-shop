@@ -72,11 +72,7 @@ jobs:
           path: '.' 
           format: 'SARIF'
           # Các đối số loại trừ để tránh lỗi với các tệp "bẫy"
-          args: >-
-            --exclude "**/frontend/dist/**"
-            --exclude "**/ftp/**"
-            --node-audit-analyzer-enabled false
-            --retire-js-analyzer-enabled false
+          args: '--exclude "**/frontend/dist/**" --exclude "**/ftp/**"'
       
       - name: Upload OWASP results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
@@ -96,3 +92,44 @@ jobs:
         with:
           name: owasp-dependency-check-report
           path: ${{ steps.DepCheck.outputs.html_file }}
+          
+  generate-sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-lastest 
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Generate SBOM with Syft 
+        uses: anchore/sbom-action@v0
+        with:
+          format: spfx-json
+          output-file: "sbom.json" 
+      - name: Upload SBOM Artifact 
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.json
+
+  scan-sbom-grype:
+    name: Scan Sbom Grype
+    runs-on: ubuntu-lastest
+    needs: generate-sbom
+    
+    steps:
+      - name: Download SBOM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Grype vulnerability scanner on sbom
+    # Sử dụng action chính thức của Grype
+        uses: anchore/scan-action@v6
+        continue-on-error: true
+        with:
+          sbom: "sbom.json"
+          output-format: table
+      
