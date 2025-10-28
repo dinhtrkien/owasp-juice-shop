@@ -103,7 +103,7 @@ jobs:
       - name: Generate SBOM with Syft 
         uses: anchore/sbom-action@v0
         with:
-          format: spfx-json
+          format: spdx-json
           output-file: "sbom.json" 
       - name: Upload SBOM Artifact 
         uses: actions/upload-artifact@v4
