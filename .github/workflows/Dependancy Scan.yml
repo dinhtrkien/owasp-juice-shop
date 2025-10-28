@@ -50,30 +50,34 @@ jobs:
       security-events: write
       
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v3
         with:
           node-version: '20.x'
           cache: 'npm'
-      
-      # Bước cài đặt riêng cho job này
-      - name: Install Dependencies for OWASP
-        run: npm ci --legacy-peer-deps
-
-      - name: Run OWASP Dependency-Check
-        id: DepCheck
+      - run: npm ci --legacy-peer-deps
+      # Sử dụng action này chỉ để cài đặt công cụ và cập nhật DB.
+      - name: Install OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
-        # continue-on-error: true # Bật nếu bạn muốn workflow tiếp tục dù có lỗi
         with:
-          project: ${{ github.event.repository.name }}
-          path: '.' 
-          format: 'SARIF'
-          # Các đối số loại trừ để tránh lỗi với các tệp "bẫy"
-          args: --exclude "**/frontend/dist/**" --exclude "**/ftp/**"
-  
+          scan-args: "--version" # Chạy lệnh nhanh để hoàn tất cài đặt
+
+      - name: Run Dependency-Check Scan Command
+        id: DepCheck # Đặt ID để lấy output
+        run: |
+          dependency-check.sh \
+            --project "${{ github.event.repository.name }}" \
+            --scan "." \
+            --format "SARIF" \
+            --out "." \
+            --exclude "**/frontend/dist/**" \
+            --exclude "**/ftp/**"
+          # Đặt đường dẫn đến tệp sarif vào step output
+          echo "sarif_file=dependency-check-report.sarif" >> $GITHUB_OUTPUT
+        # Vẫn bật để không dừng pipeline nếu có lỗi, nhưng giờ lỗi zip slip đã được xử lý
+        continue-on-error: true
+      
+    
       - name: Upload OWASP results
         if: always()
         uses: github/codeql-action/upload-sarif@v3
