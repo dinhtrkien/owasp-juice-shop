@@ -33,7 +33,7 @@ jobs:
     
   sca-with-snyk:
     name: Snyk Dependency Scan (SCA)
-    runs-on: self-hosted # hoặc ubuntu-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       security-events: write
