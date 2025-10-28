@@ -8,101 +8,72 @@ on:
       - feature/hoang_anh
 
 jobs:
-  # ------ JOB 1: CHUẨN BỊ MÔI TRƯỜNG ------
-  prepare:
-    name: Prepare Environment
-    runs-on: ubuntu-latest 
-
+  sast-with-sonarqube:
+    name: SAST Sonarqube Scan
+    runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout code
+      - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js and Cache Dependencies
-        uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
-          cache: 'npm' 
+          fetch-depth: 0
 
-      - name: Force regenerate package-lock.json and Install
-        run: |
-          rm -f package-lock.json
-          npm install --legacy-peer-deps
-
-      # Lưu lại node_modules để các job sau sử dụng
-      - name: Cache node_modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-
-  # ------ JOB 2: QUÉT VỚI SNYK (SCA) ------
-  snyk-sca-scan:
-    name: Snyk Dependency Scan (SCA)
-    runs-on: ubuntu-latest # <-- THAY ĐỔI Ở ĐÂY
-    needs: prepare
-    permissions:
-      security-events: write
-      
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
-        with:
-          node-version: '20.x'
-          
-      # Khôi phục node_modules từ cache
-      - name: Restore node_modules cache
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          # Thêm restore-keys để tăng khả năng tìm thấy cache
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Run Snyk to check for vulnerabilities
-        uses: snyk/actions/node@master
-        continue-on-error: true
+      - name: Run SonarQube to Scan vulnerabilities 
+        uses: sonarsource/sonarqube-scan-action@master
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          command: test
-          args: --sarif-file-output=snyk-sca-results.sarif
-      
-      - uses: github/codeql-action/upload-sarif@v3
-        with:
-          category: snyk-sca-scan
-          sarif_file: snyk-sca-results.sarif
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          continue-on-erro: true
+
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 10
+        env: 
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  
 
   # ------ JOB 3: QUÉT VỚI OWASP DEPENDENCY-CHECK ------
   owasp-dependency-check:
     name: OWASP Dependency-Check Scan
-    runs-on: ubuntu-latest # <-- THAY ĐỔI Ở ĐÂY
-    needs: prepare
+    runs-on: ubuntu-latest
     permissions:
       security-events: write
       
     steps:
-      - uses: actions/checkout@v4
-      - name: Restore node_modules cache
-        uses: actions/cache@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: '20.x'
+          cache: 'npm'
+      
+      # Bước cài đặt riêng cho job này
+      - name: Install Dependencies for OWASP
+        run: npm ci --legacy-peer-deps
 
       - name: Run OWASP Dependency-Check
         id: DepCheck
         uses: dependency-check/Dependency-Check_Action@main
+        # continue-on-error: true # Bật nếu bạn muốn workflow tiếp tục dù có lỗi
         with:
           project: 'juice-shop'
           scan: '.' 
           format: 'SARIF'
+          # Các đối số loại trừ để tránh lỗi với các tệp "bẫy"
           scan-args: >-
             --exclude "**/frontend/dist/**"
             --exclude "**/ftp/**"
             --node-audit-analyzer-enabled false
             --retire-js-analyzer-enabled false
+      
+      - name: Upload OWASP results to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() # Dùng always() vì DepCheck có thể fail nếu tìm thấy lỗi
+        with:
+          category: owasp-dependency-check
+          sarif_file: ${{ steps.DepCheck.outputs.sarif_file }}
       
       - name: Upload OWASP Dependency-Check results
         uses: github/codeql-action/upload-sarif@v3
