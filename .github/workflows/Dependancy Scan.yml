@@ -78,8 +78,11 @@ jobs:
         # Thêm các tham số khác không có input trực tiếp thông qua 'args'
         # Mỗi tham số và giá trị của nó nên được đặt trong dấu ngoặc kép riêng
           args: >
-            --exclude "**/frontend/dist/**"
-            --exclude "**/ftp/**"
+           --failOnCVSS 0
+           --exclude "**/frontend/dist/**"
+           --exclude "**/ftp/**"
+           --exclude "**/owasp_promo.vtt"
+           --exclude "**/legal.md"
     
       - name: Upload OWASP Dependency-Check results to GitHub Security
         # Chỉ chạy bước này nếu bước trước thành công
