@@ -60,18 +60,24 @@ jobs:
           path: '.'
           format: 'SARIF'
           out: './reports'
-        # === PHẦN QUAN TRỌNG NHẤT LÀ ĐÂY ===
-        # Các tham số này sẽ chỉ cho Dependency-Check bỏ qua các file gây lỗi.
           args: >
             --exclude "**/frontend/dist/**"
             --exclude "**/ftp/**"
             --exclude "**/owasp_promo.vtt"
             --exclude "**/legal.md"
+      - name: Check the output variable
+        run: | 
+          echo "Giá trị của steps.DepCheck.outputs.sarif_file là:"
+          echo "'${{ steps.DepCheck.outputs.sarif_file }}'"
+      - name: 📂 [DEBUG] Check if report file exists
+        run: |
+          echo "Liệt kê tất cả các file trong thư mục reports:"
+          ls -R ./reports
+      # Luôn chạy step này để kiểm tra, kể cả khi step trước đó có vấn đề
+        if: always()
+
           
       - name: Upload OWASP Dependency-Check results to GitHub Security
-      # Sử dụng if: success() || failure() để đảm bảo báo cáo luôn được upload
-      # ngay cả khi bước quét thất bại do tìm thấy lỗ hổng.
-        if: success() || failure()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.DepCheck.outputs.sarif_file }}
