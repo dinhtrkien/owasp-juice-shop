@@ -42,50 +42,54 @@ jobs:
         if: success()
         with:
           sarif_file: snyk.sarif
-
   owasp-dependency-check:
     name: OWASP Dependency-Check Scan
     runs-on: ubuntu-latest
     permissions:
+    # Bắt buộc phải có quyền này để upload kết quả lên tab Security
       security-events: write
-      
+    # Quyền đọc code để checkout
+      contents: read
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: actions/setup-node@v3
         with:
           node-version: '20.x'
           cache: 'npm'
       - run: npm ci --legacy-peer-deps
-      # Sử dụng action này chỉ để cài đặt công cụ và cập nhật DB.
-      - name: Install OWASP Dependency-Check
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          scan-args: "--version" # Chạy lệnh nhanh để hoàn tất cài đặt
 
-      - name: Run Dependency-Check Scan Command
-        id: DepCheck # Đặt ID để lấy output
-        run: |
-          dependency-check.sh \
-            --project "${{ github.event.repository.name }}" \
-            --scan "." \
-            --format "SARIF" \
-            --out "." \
-            --exclude "**/frontend/dist/**" \
+    # Chạy OWASP Dependency-Check trong một bước duy nhất
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        id: DepCheck # Đặt ID để lấy output từ action này
+        with:
+        # Tên dự án, sẽ hiển thị trong báo cáo
+          project: '${{ github.event.repository.name }}'
+        # Đường dẫn cần quét. '.' có nghĩa là quét toàn bộ thư mục gốc
+          path: '.'
+        # Định dạng output. SARIF là định dạng để tích hợp với GitHub Security
+          format: 'SARIF'
+        # Thư mục để lưu báo cáo. Action sẽ tự động tạo thư mục này nếu chưa có
+          out: './reports'
+        # Thêm các tham số khác không có input trực tiếp thông qua 'args'
+        # Mỗi tham số và giá trị của nó nên được đặt trong dấu ngoặc kép riêng
+          args: >
+            --exclude "**/frontend/dist/**"
             --exclude "**/ftp/**"
-          # Đặt đường dẫn đến tệp sarif vào step output
-          echo "sarif_file=dependency-check-report.sarif" >> $GITHUB_OUTPUT
-        # Vẫn bật để không dừng pipeline nếu có lỗi, nhưng giờ lỗi zip slip đã được xử lý
-        continue-on-error: true
-      
     
-      - name: Upload OWASP results
-        if: always()
+      - name: Upload OWASP Dependency-Check results to GitHub Security
+        # Chỉ chạy bước này nếu bước trước thành công
+        if: success()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          category: owasp-dependency-check
+        # Action dependency-check tự động cung cấp đường dẫn đến file SARIF qua output
           sarif_file: ${{ steps.DepCheck.outputs.sarif_file }}
-      
-      
+        # Tùy chọn: đặt category để phân biệt các công cụ quét khác nhau
+          category: owasp-dependency-check
 
   generate-sbom:
     name: Generate SBOM
