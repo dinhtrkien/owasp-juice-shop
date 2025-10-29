@@ -87,9 +87,6 @@ jobs:
       - name: Upload OWASP Dependency-Check results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         with:
-        # Chúng ta không dùng output nữa.
-        # Thay vào đó, chúng ta cung cấp đường dẫn trực tiếp đến file báo cáo.
-        # Đường dẫn này khớp với giá trị 'out' ở trên và tên file mặc định.
           sarif_file: './reports/dependency-check-report.sarif'
           category: owasp-dependency-check
   
@@ -132,4 +129,47 @@ jobs:
         with:
           sbom: "sbom.json"
           output-format: table
+  
+  build-image-and-test:
+    name: Build Docker Image And Test Dependancy
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read 
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build Docker Image
+        run: | 
+           docker build . -t juiceshop:latest
+      - name: Scan for SARIF Report
+        uses: aquasecurity/trivy-action@0.33.0
+        with:
+          image-ref: 'juiceshop:latest'
+          format: 'tamplate'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH, CRITICAL'
+          exit-code: '0'
+      - name: Scan and Print Table to Log
+        uses: aquasecurity/trivy-action@0.33.0
+        with:
+          image-ref: 'juiceshop:latest'
+          format: 'table'
+          severity: 'HIGH. CRITICAL'
+          exit-code: '0'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+
+
+
+
+
+
       
