@@ -148,7 +148,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.33.0
         with:
           image-ref: 'juiceshop:latest'
-          format: 'tamplate'
+          format: 'template'
           template: '@/contrib/sarif.tpl'
           output: 'trivy-results.sarif'
           severity: 'HIGH, CRITICAL'
