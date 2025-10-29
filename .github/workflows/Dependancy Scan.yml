@@ -63,7 +63,6 @@ jobs:
         # === PHẦN QUAN TRỌNG NHẤT LÀ ĐÂY ===
         # Các tham số này sẽ chỉ cho Dependency-Check bỏ qua các file gây lỗi.
           args: >
-            --failOnCVSS 0
             --exclude "**/frontend/dist/**"
             --exclude "**/ftp/**"
             --exclude "**/owasp_promo.vtt"
