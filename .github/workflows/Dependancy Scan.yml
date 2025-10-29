@@ -8,9 +8,9 @@ on:
       - feature/hoang_anh
 
 jobs:
-  
+
   sca-with-snyk:
-    name: SCA Synk Scan
+    name: SCA Snyk Scan
     runs-on: ubuntu-latest
     permissions: 
       contents: read
@@ -37,6 +37,11 @@ jobs:
         with: 
           command: test
           args: --sarif-file-output=snyk.sarif
+      
+      - name: DEBUG Verify snyk.sarif file exists
+        run: |
+          echo "Kiểm tra sự tồn tại của file snyk.sarif:"
+          ls -l snyk.sarif
         
       - name: Upload result to Github Code Scanning
         uses: github/codeql-action/upload-sarif@v3
