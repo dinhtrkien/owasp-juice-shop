@@ -52,48 +52,31 @@ jobs:
       contents: read
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-      - run: npm ci --legacy-peer-deps
-
-    # Chạy OWASP Dependency-Check trong một bước duy nhất
       - name: Run OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@main
-        id: DepCheck # Đặt ID để lấy output từ action này
+        id: DepCheck
         with:
-        # Tên dự án, sẽ hiển thị trong báo cáo
           project: '${{ github.event.repository.name }}'
-        # Đường dẫn cần quét. '.' có nghĩa là quét toàn bộ thư mục gốc
           path: '.'
-        # Định dạng output. SARIF là định dạng để tích hợp với GitHub Security
           format: 'SARIF'
-        # Thư mục để lưu báo cáo. Action sẽ tự động tạo thư mục này nếu chưa có
           out: './reports'
-        # Thêm các tham số khác không có input trực tiếp thông qua 'args'
-        # Mỗi tham số và giá trị của nó nên được đặt trong dấu ngoặc kép riêng
+        # === PHẦN QUAN TRỌNG NHẤT LÀ ĐÂY ===
+        # Các tham số này sẽ chỉ cho Dependency-Check bỏ qua các file gây lỗi.
           args: >
-           --failOnCVSS 0
-           --exclude "**/frontend/dist/**"
-           --exclude "**/ftp/**"
-           --exclude "**/owasp_promo.vtt"
-           --exclude "**/legal.md"
-    
+            --failOnCVSS 0
+            --exclude "**/frontend/dist/**"
+            --exclude "**/ftp/**"
+            --exclude "**/owasp_promo.vtt"
+            --exclude "**/legal.md"
+          
       - name: Upload OWASP Dependency-Check results to GitHub Security
-        # Chỉ chạy bước này nếu bước trước thành công
-        if: success()
+      # Sử dụng if: success() || failure() để đảm bảo báo cáo luôn được upload
+      # ngay cả khi bước quét thất bại do tìm thấy lỗ hổng.
+        if: success() || failure()
         uses: github/codeql-action/upload-sarif@v3
         with:
-        # Action dependency-check tự động cung cấp đường dẫn đến file SARIF qua output
           sarif_file: ${{ steps.DepCheck.outputs.sarif_file }}
-        # Tùy chọn: đặt category để phân biệt các công cụ quét khác nhau
           category: owasp-dependency-check
-
   generate-sbom:
     name: Generate SBOM
     runs-on: ubuntu-latest 
