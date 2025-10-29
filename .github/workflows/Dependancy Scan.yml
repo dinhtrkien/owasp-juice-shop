@@ -8,6 +8,7 @@ on:
       - feature/hoang_anh
 
 jobs:
+  
   sca-with-snyk:
     name: SCA Synk Scan
     runs-on: ubuntu-latest
@@ -39,10 +40,10 @@ jobs:
         
       - name: Upload result to Github Code Scanning
         uses: github/codeql-action/upload-sarif@v3
-        if: success()
+        if: always()
         with:
           sarif_file: snyk.sarif
-          
+
   owasp-dependency-check:
     name: OWASP Dependency-Check Scan
     runs-on: ubuntu-latest
@@ -66,16 +67,16 @@ jobs:
         uses: dependency-check/Dependency-Check_Action@main
         continue-on-error: true
         with:
-         project: '${{ github.event.repository.name }}'
-         path: '.'
-         format: 'SARIF'
+          project: '${{ github.event.repository.name }}'
+          path: '.'
+          format: 'SARIF'
         # Chúng ta biết chắc file sẽ được tạo ra trong thư mục này
-         out: './reports'
-         args: >
-          --exclude "**/frontend/dist/**"
-          --exclude "**/ftp/**"
-          --exclude "**/owasp_promo.vtt"
-          --exclude "**/legal.md"
+          out: './reports'
+          args: >
+             --exclude "**/frontend/dist/**"
+             --exclude "**/ftp/**"
+             --exclude "**/owasp_promo.vtt"
+             --exclude "**/legal.md"
     
    
       - name: Upload OWASP Dependency-Check results to GitHub Security
