@@ -1,0 +1,69 @@
+name: Security Scan Image on EC2
+
+on:
+  workflow_dispatch:
+    inputs:
+      ec2_host:
+        description: 'Public IP or DNS of the EC2 instance'
+        required: true
+      image_name_or_id:
+        description: 'Name:tag or ID of the Docker image on EC2 to scan'
+        required: true
+        default: 'dinhtrkien/owasp-juice-shop:latest'
+
+jobs:
+  scan-on-ec2:
+    name: Scan Docker Image on EC2
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: SSH to EC2 and run scanners
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ inputs.ec2_host || secrets.EC2_HOST }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # --- Phần script này sẽ chạy TRỰC TIẾP TRÊN MÁY EC2 CỦA BẠN ---
+
+            echo "🚀 Connecting to EC2 and preparing to scan image: ${{ inputs.image_name_or_id }}"
+
+            # --- Tùy chọn 1: Quét bằng Trivy (Rất nhanh và dễ cài đặt) ---
+            echo "--- Scanning with Trivy ---"
+            
+            # Kiểm tra xem Trivy đã được cài chưa, nếu chưa thì cài đặt
+            if ! command -v trivy &> /dev/null
+            then
+                echo "Trivy not found. Installing..."
+                # Lệnh cài đặt Trivy cho Amazon Linux / CentOS / Ubuntu
+                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+            fi
+
+            # Chạy lệnh scan và báo lỗi nếu có lỗ hổng CRITICAL hoặc HIGH
+            # --ignore-unfixed: Bỏ qua các lỗ hổng chưa có bản vá, rất hữu ích để giảm nhiễu
+            trivy image --severity HIGH,CRITICAL --ignore-unfixed ${{ inputs.image_name_or_id }}
+
+            echo "--- Trivy scan completed ---"
+
+
+            # --- Tùy chọn 2: Quét bằng Snyk (Cần cài Node.js/npm trên EC2) ---
+            echo "--- Scanning with Snyk ---"
+            
+            # Kiểm tra xem Snyk đã được cài chưa
+            if ! command -v snyk &> /dev/null
+            then
+                echo "Snyk not found. Installing via npm..."
+                # LƯU Ý: Máy EC2 của bạn cần cài sẵn Node.js và npm
+                # Bạn có thể cần chạy 'sudo yum install -y nodejs' hoặc 'sudo apt-get install -y nodejs npm' trước
+                sudo npm install -g snyk
+            fi
+
+            # Đăng nhập Snyk (cần truyền SNYK_TOKEN vào script)
+            snyk auth ${{ secrets.SNYK_TOKEN }}
+
+            # Chạy lệnh scan
+            snyk container test ${{ inputs.image_name_or_id }} --severity-threshold=high
+
+            echo "--- Snyk scan completed ---"
+
+             trivy-scan-on-ec2:
+   
