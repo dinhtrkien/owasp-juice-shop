@@ -65,5 +65,48 @@ jobs:
 
             echo "--- Snyk scan completed ---"
 
-             trivy-scan-on-ec2:
+  trivy-scan-on-ec2:
+    name: Scan Docker Image on EC2 with Trivy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: SSH to EC2 and run Trivy scan
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          # --- Phần cấu hình kết nối SSH ---
+          host: ${{ inputs.ec2_host }}
+          # Username mặc định cho Amazon Linux. Đổi thành 'ubuntu' nếu bạn dùng Ubuntu.
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          
+          # --- Phần script sẽ chạy trực tiếp trên máy EC2 của bạn ---
+          script: |
+            set -e # Dừng ngay lập tức nếu có bất kỳ lệnh nào thất bại
+
+            IMAGE_TO_SCAN="${{ inputs.image_name_or_id }}"
+            
+            echo "🚀 Connecting to EC2..."
+            echo "🎯 Preparing to scan image: ${IMAGE_TO_SCAN}"
+
+            # 1. Kiểm tra xem Trivy đã được cài đặt chưa
+            if ! command -v trivy &> /dev/null
+            then
+                echo "Trivy not found. Installing now..."
+                # Lệnh cài đặt này hoạt động trên hầu hết các bản phân phối Linux (Amazon Linux, CentOS, Ubuntu)
+                # Nó sẽ yêu cầu quyền sudo, action này mặc định chạy lệnh với sudo nếu cần.
+                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+                echo "✅ Trivy installed successfully."
+            else
+                echo "👍 Trivy is already installed."
+            fi
+
+            # 2. Chạy lệnh Trivy scan
+            echo "🔍 Running Trivy scan..."
+            trivy image \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              ${IMAGE_TO_SCAN}
+            
+            echo "✅ Trivy scan completed successfully. No HIGH or CRITICAL vulnerabilities found."
    
