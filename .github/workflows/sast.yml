@@ -3,7 +3,7 @@ name: Sast
 on:
   push:
     branches:
-      - main
+      - feature/truong
 
 
 jobs:
