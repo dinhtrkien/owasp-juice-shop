@@ -3,34 +3,30 @@ name: DAST Scan (OWASP ZAP)
 on:
   push:
     branches:
-      - feature/truong   
-  workflow_dispatch:     
+      - feature/truong
+
 jobs:
-  zap_scan:
+  dast-scan:
     runs-on: ubuntu-latest
-    name: Run OWASP ZAP DAST Scan
 
     steps:
-      
       - name: Checkout repository
         uses: actions/checkout@v4
 
-     
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
-
-
       - name: Run OWASP ZAP baseline scan
         run: |
-          docker run -v $(pwd):/zap/wrk/:rw \
-            owasp/zap2docker-stable zap-baseline.py \
-            -t https://8999cd7bbecf.ngrok-free.app \
-            -r zap-report.html || true
+          docker run -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py \
+            -t "http://localhost:3000" \
+            -r zap-report.html
 
-      
+      # Sao chép file báo cáo ra workspace (đề phòng bị lưu trong container)
+      - name: Move ZAP report to workspace
+        run: |
+          cp zap-report.html $GITHUB_WORKSPACE/zap-report.html || echo "No report found"
+
       - name: Upload ZAP Scan Report
         uses: actions/upload-artifact@v4
         with:
           name: ZAP-DAST-Report
           path: zap-report.html
-#test
+          if-no-files-found: warn
