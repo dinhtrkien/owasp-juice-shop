@@ -23,11 +23,14 @@ jobs:
           docker run -d -p 3000:3000 --name juice-shop bkimminich/juice-shop
           sleep 40
 
-      - name: Run OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.11.0
-        with:
-          target: 'http://localhost:3000'
-          cmd_options: '-a -r zap-report.html'
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          docker run --network="host" \
+          -v ${{ github.workspace }}/zap-results:/zap/wrk/:rw \
+          owasp/zap2docker-stable zap-baseline.py \
+          -t http://localhost:3000 \
+          -r zap-report.html
+
 
       - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
