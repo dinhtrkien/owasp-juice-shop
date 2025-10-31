@@ -23,12 +23,12 @@ jobs:
       - name: SSH to EC2 and run scanners
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ inputs.ec2_host || secrets.EC2_HOST }}
+          host: ${{ secrets.EC2_HOST }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # --- Phần script này sẽ chạy TRỰC TIẾP TRÊN MÁY EC2 CỦA BẠN ---
 
-            echo "🚀 Connecting to EC2 and preparing to scan image: ${{ inputs.image_name_or_id }}"
+            echo "🚀 Connecting to EC2 and preparing to scan image: dinhtrkien/owasp-juice-shop:latest"
 
             # --- Tùy chọn 1: Quét bằng Trivy (Rất nhanh và dễ cài đặt) ---
             echo "--- Scanning with Trivy ---"
@@ -43,7 +43,7 @@ jobs:
 
             # Chạy lệnh scan và báo lỗi nếu có lỗ hổng CRITICAL hoặc HIGH
             # --ignore-unfixed: Bỏ qua các lỗ hổng chưa có bản vá, rất hữu ích để giảm nhiễu
-            trivy image --severity HIGH,CRITICAL --ignore-unfixed ${{ inputs.image_name_or_id }}
+            trivy image --severity HIGH,CRITICAL --ignore-unfixed dinhtrkien/owasp-juice-shop:latest
 
             echo "--- Trivy scan completed ---"
 
@@ -64,7 +64,7 @@ jobs:
             snyk auth ${{ secrets.SNYK_TOKEN }}
 
             # Chạy lệnh scan
-            snyk container test ${{ inputs.image_name_or_id }} --severity-threshold=high
+            snyk container test dinhtrkien/owasp-juice-shop:latest --severity-threshold=high
 
             echo "--- Snyk scan completed ---"
 
@@ -78,15 +78,14 @@ jobs:
         with:
           # --- Phần cấu hình kết nối SSH ---
           host: ${{ secrets.EC2_HOST }}
-          # Username mặc định cho Amazon Linux. Đổi thành 'ubuntu' nếu bạn dùng Ubuntu.
-          username: ubuntu 
+          username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           
           # --- Phần script sẽ chạy trực tiếp trên máy EC2 của bạn ---
           script: |
             set -e # Dừng ngay lập tức nếu có bất kỳ lệnh nào thất bại
 
-            IMAGE_TO_SCAN="${{ inputs.image_name_or_id }}"
+            IMAGE_TO_SCAN="dinhtrkien/owasp-juice-shop:latest"
             
             echo "🚀 Connecting to EC2..."
             echo "🎯 Preparing to scan image: ${IMAGE_TO_SCAN}"
