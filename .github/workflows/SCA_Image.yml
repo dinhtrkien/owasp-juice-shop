@@ -10,6 +10,9 @@ on:
         description: 'Name:tag or ID of the Docker image on EC2 to scan'
         required: true
         default: 'dinhtrkien/owasp-juice-shop:latest'
+  push:
+    branches: 
+      - feature/hoang_anh
 
 jobs:
   scan-on-ec2:
