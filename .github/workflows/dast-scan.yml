@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    
+      - name: Prepare result directory
+        run: mkdir -p zap-results
+
+    
       - name: Checkout repository
         uses: actions/checkout@v4
 
