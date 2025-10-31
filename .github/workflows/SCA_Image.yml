@@ -26,6 +26,9 @@ jobs:
           username: ec2-user # Username mặc định cho Amazon Linux
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            echo "--- Checking disk space on EC2 ---"
+            df -h
+            echo "------------------------------"
             set -e # Dừng ngay lập tức nếu có lỗi
 
             echo "🚀 Connecting to EC2 to scan ${{ env.IMAGE_TO_SCAN }} with Trivy..."
