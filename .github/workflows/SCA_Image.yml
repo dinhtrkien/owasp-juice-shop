@@ -79,7 +79,7 @@ jobs:
           # --- Phần cấu hình kết nối SSH ---
           host: ${{ secrets.EC2_HOST }}
           # Username mặc định cho Amazon Linux. Đổi thành 'ubuntu' nếu bạn dùng Ubuntu.
-          username: ec2-user
+          username: ubuntu 
           key: ${{ secrets.EC2_SSH_KEY }}
           
           # --- Phần script sẽ chạy trực tiếp trên máy EC2 của bạn ---
