@@ -22,8 +22,9 @@ jobs:
         run: |
           mkdir -p zap-results
           chmod 777 zap-results
-          docker run --rm --user root \
-            -v $(pwd)/zap-results:/zap/wrk \
+          docker run --user root \
+            --add-host=host.docker.internal:host-gateway \
+            -v ${{ github.workspace }}/zap-results:/zap/wrk/:rw \
             ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
             -t http://host.docker.internal:3000 \
             -r zap-report.html
