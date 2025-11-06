@@ -40,7 +40,7 @@ jobs:
             if ! command -v trivy &> /dev/null
             then
                 echo "Trivy not found. Installing now..."
-                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+                curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
             fi
 
             # 2. Chạy Trivy scan
