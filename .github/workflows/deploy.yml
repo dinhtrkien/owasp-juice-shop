@@ -83,7 +83,7 @@ jobs:
       #     DEPLOY_URL="${{ inputs.environment == 'production' && secrets.PROD_URL || secrets.STAGING_URL }}"
 
       #     if [ ! -z "$DEPLOY_URL" ]; then
-      #       curl -f $DEPLOY_URL/rest/admin/application-version || echo "⚠️ Health check needs configuration"
+      #       curl -f $DEPLOY_URL/rest/admin/application-version || echo "Health check needs configuration"
       #     fi
 
       #     echo "✅ Deployment health check completed"
