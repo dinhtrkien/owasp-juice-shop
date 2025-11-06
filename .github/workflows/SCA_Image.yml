@@ -52,7 +52,6 @@ jobs:
             
             echo "✅ Trivy scan completed successfully."
 
-  # ------ JOB 2: Quét bằng SNYK ------
   snyk-scan:
     name: Scan with Snyk on EC2
     runs-on: ubuntu-latest
@@ -65,24 +64,37 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # =========================================================
-            # SỬA LỖI QUAN TRỌNG: Export SNYK_TOKEN bên trong script
             export SNYK_TOKEN=${{ secrets.SNYK_TOKEN }}
-            # =========================================================
-
             set -e # Dừng ngay lập tức nếu có lỗi
 
             echo "🚀 Scanning ${{ env.IMAGE_TO_SCAN }} with Snyk..."
-
-            # 1. Cài đặt Snyk nếu cần (yêu cầu Node.js/npm trên EC2)
+            
+            if ! command -v npm &> /dev/null
+            then
+                echo "NPM not found. Installing Node.js and NPM..."
+                # Lệnh cài đặt cho Amazon Linux 2
+                # Sử dụng nvm (Node Version Manager) là cách tốt nhất
+                curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+                # Kích hoạt nvm mà không cần đăng xuất/đăng nhập lại
+                export NVM_DIR="$HOME/.nvm"
+                [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+                # Cài đặt phiên bản Node.js LTS (Long Term Support) mới nhất
+                nvm install --lts
+                echo "✅ Node.js and NPM installed successfully."
+            fi
+            
+            # 1. Cài đặt Snyk nếu cần
             if ! command -v snyk &> /dev/null
             then
                 echo "Snyk not found. Installing via npm..."
-                # LƯU Ý: Đảm bảo EC2 của bạn đã cài Node.js và npm
-                sudo npm install -g snyk
+                # Bây giờ lệnh này sẽ hoạt động
+                npm install -g snyk
+                # Kích hoạt lại nvm để shell biết Snyk ở đâu
+                [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             fi
 
             # 2. Chạy Snyk scan
+            echo "🔍 Running Snyk scan..."
             snyk container test ${{ env.IMAGE_TO_SCAN }} --severity-threshold=high
             
             echo "✅ Snyk scan completed successfully."
