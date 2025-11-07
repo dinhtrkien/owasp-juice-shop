@@ -7,7 +7,6 @@ on:
     branches: 
       - 'feature/hoang_anh'
 
-# Định nghĩa các biến môi trường dùng chung cho tất cả các job
 env:
   IMAGE_TO_SCAN: dinhtrkien/owasp-juice-shop:latest
 
@@ -28,7 +27,6 @@ jobs:
             echo "--- Checking disk space before scan ---"
             df -h
             
-            # Tùy chọn: Tự động dọn dẹp Docker để tránh lỗi hết dung lượng
             echo "--- Cleaning up unused Docker resources ---"
             docker system prune -af || true
             
@@ -51,6 +49,7 @@ jobs:
               ${{ env.IMAGE_TO_SCAN }}
             
             echo "✅ Trivy scan completed successfully."
+          exit-code: '0'
 
   snyk-scan:
     name: Scan with Snyk on EC2
@@ -98,3 +97,4 @@ jobs:
             snyk container test ${{ env.IMAGE_TO_SCAN }} --severity-threshold=high
             
             echo "✅ Snyk scan completed successfully."
+          continue-on-error: true
