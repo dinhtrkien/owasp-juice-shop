@@ -112,10 +112,10 @@ jobs:
           sbom: "sbom.json"
           output-format: 'SARIF'
       - name: Upload Result to Tab Security Scan
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          sarif_file: ${{ steps.grype-scan.outputs.sarif-file }}
+          sarif_file: ${{ steps.grype-scan.outputs.sarif }}
 
   
   build-image-and-test:
