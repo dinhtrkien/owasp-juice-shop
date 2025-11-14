@@ -109,7 +109,7 @@ jobs:
         uses: anchore/scan-action@v6
         continue-on-error: true
         with:
-          sbom: "sbom.json"
+          path: '.'
           output-format: 'SARIF'
       - name: Upload Result to Tab Security Scan
         uses: github/codeql-action/upload-sarif@v4
