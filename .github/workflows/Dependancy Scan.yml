@@ -91,6 +91,9 @@ jobs:
   generate-sbom:
     name: Generate SBOM and Scan
     runs-on: ubuntu-latest 
+    permissions:
+      security-events: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -112,7 +115,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: ${{ steps.grype-scan.outputs.sarif}}
+          sarif_file: ${{ steps.grype-scan.outputs.sarif-file }}
 
   
   build-image-and-test:
