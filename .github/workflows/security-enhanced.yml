@@ -1,9 +1,5 @@
 name: "Enhanced Security Pipeline"
 
-# Som (Pipeline Lead) orchestrates all security workflows
-# This is YOUR team's main security pipeline - it calls individual workflows
-# Each team member maintains their own .yml file to avoid merge conflicts
-
 on:
   push:
     branches:
@@ -14,198 +10,354 @@ on:
     branches:
       - dev
   workflow_dispatch: # Manual trigger for testing
-
+env:
+  NODE_VERSION: 22
+  IMAGE_TO_SCAN: dinhtrkien/owasp-juice-shop:latest
 jobs:
-  # ============================================
-  # Truong: SAST + DAST Workflows
-  # ============================================
-  run-sast:
-    name: "SAST Scanning (Truong)"
-    uses: ./.github/workflows/sast-scan.yml
-    secrets: inherit
 
-  run-dast:
-    name: "DAST Scanning (Truong)"
-    uses: ./.github/workflows/dast-scan.yml
-    secrets: inherit
-
-  # ============================================
-  # Dat: Container Security Workflows
-  # ============================================
-  run-container-scan:
-    name: "Container Scanning (Dat)"
-    uses: ./.github/workflows/container-scan.yml
-    secrets: inherit
-
-  # ============================================
-  # Hoang Anh: Dependency & SBOM Workflows
-  # ============================================
-  run-dependency-scan:
-    name: "Dependency Scanning (Hoang Anh)"
-    uses: ./.github/workflows/dependency-scan.yml
-    secrets: inherit
-
-  # ============================================
-  # Som: Security Gate Evaluation
-  # ============================================
-  security-gate:
-    name: "Security Quality Gate"
+  sca-with-snyk:
+    name: SCA Snyk Scan
     runs-on: ubuntu-latest
-    needs:
-      - run-sast
-      - run-dast
-      - run-container-scan
-      - run-dependency-scan
-    if: always() # Run even if some scans failed
-    outputs:
-      deploy_approved: ${{ steps.evaluate.outputs.deploy_approved }}
+    permissions: 
+      contents: read
+      security-events: write
+    
     steps:
-      - name: Evaluate security scan results
-        id: evaluate
-        run: |
-          echo "🔒 Security Gate Evaluation"
-          echo "=============================="
-          echo ""
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-          # Check all workflow results
-          SAST_STATUS="${{ needs.run-sast.result }}"
-          DAST_STATUS="${{ needs.run-dast.result }}"
-          CONTAINER_STATUS="${{ needs.run-container-scan.result }}"
-          DEPENDENCY_STATUS="${{ needs.run-dependency-scan.result }}"
-
-          echo "📊 Scan Results:"
-          echo "  SAST (Truong): $SAST_STATUS"
-          echo "  DAST (Truong): $DAST_STATUS"
-          echo "  Container (Dat): $CONTAINER_STATUS"
-          echo "  Dependencies (Hoang Anh): $DEPENDENCY_STATUS"
-          echo ""
-
-          # For this intentionally vulnerable app:
-          # - We run all scans
-          # - We report findings
-          # - We proceed with deployment for educational purposes
-          # - In production, you would fail on critical findings
-
-          echo "⚠️  NOTE: This is an INTENTIONALLY VULNERABLE application"
-          echo "📋 All security scans completed - see artifacts for detailed reports"
-          echo "✅ Deployment APPROVED for educational/demo purposes"
-          echo ""
-
-          # Set output for deployment decision
-          echo "deploy_approved=true" >> $GITHUB_OUTPUT
-
-      - name: Generate summary comment
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          script: |
-            const summary = `
-            ## 🔒 Security Scan Summary
+          node-version: '20.x'
+          cache: 'npm'
 
-            | Scan Type | Status | Owner |
-            |-----------|--------|-------|
-            | SAST | ${{ needs.run-sast.result }} | Truong |
-            | DAST | ${{ needs.run-dast.result }} | Truong |
-            | Container | ${{ needs.run-container-scan.result }} | Dat |
-            | Dependencies | ${{ needs.run-dependency-scan.result }} | Hoang Anh |
+      - name: Install Dependancy
+        run: npm ci --legacy-peer-deps
+      
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env: 
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with: 
+          command: test
+          args: --sarif-file-output=snyk.sarif
+      
+      - name: DEBUG Verify snyk.sarif file exists
+        run: |
+          echo "Kiểm tra sự tồn tại của file snyk.sarif:"
+          ls -l snyk.sarif
+        
+      - name: Upload result to Github Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: snyk.sarif
 
-            **Security Gate**: ✅ Approved (intentionally vulnerable app)
-
-            📊 See workflow artifacts for detailed security reports
-            `;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            });
-
-  # ============================================
-  # Kien: Deployment Workflows
-  # ============================================
-  deploy-staging:
-    name: "Deploy to Staging (Kien)"
-    needs: [security-gate]
-    if: |
-      github.ref == 'refs/heads/dev' && 
-      needs.security-gate.outputs.deploy_approved == 'true'
-    uses: ./.github/workflows/deploy.yml
-    with:
-      environment: staging
-    secrets: inherit
-
-  deploy-production:
-    name: "Deploy to Production (Kien)"
-    needs: [security-gate]
-    if: |
-      github.ref == 'refs/heads/main' && 
-      needs.security-gate.outputs.deploy_approved == 'true'
-    uses: ./.github/workflows/deploy.yml
-    with:
-      environment: production
-    secrets: inherit
-
-  # ============================================
-  # Ha: Generate Documentation Report
-  # ============================================
-  generate-documentation:
-    name: "Generate Security Documentation (Ha)"
+  owasp-dependency-check:
+    name: OWASP Dependency-Check Scan
     runs-on: ubuntu-latest
-    needs:
-      - security-gate
-      - deploy-staging
-      - deploy-production
-    if: always()
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      - run: npm ci --legacy-peer-deps
+      - name: Run OWASP Dependency-Check Scan
+        uses: dependency-check/Dependency-Check_Action@main
+        continue-on-error: true
+        with:
+          project: '${{ github.event.repository.name }}'
+          path: '.'
+          format: 'SARIF'
+        # Chúng ta biết chắc file sẽ được tạo ra trong thư mục này
+          out: './reports'
+          args: >
+             --exclude "**/frontend/dist/**"
+             --exclude "**/ftp/**"
+             --exclude "**/owasp_promo.vtt"
+             --exclude "**/legal.md"
+    
+   
+      - name: Upload OWASP Dependency-Check results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: './reports/dependency-check-report.sarif'
+          category: owasp-dependency-check
+  
+  generate-sbom:
+    name: Generate SBOM and Scan
+    runs-on: ubuntu-latest 
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Generate SBOM with Syft 
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: "sbom.json" 
+      - name: Run Grype vulnerability scanner on sbom 
+    # Sử dụng action chính thức của Grype
+        id: grype-scan
+        uses: anchore/scan-action@v6
+        continue-on-error: true
+        with:
+          path: '.'
+          output-format: 'SARIF'
+      - name: Upload Result to Tab Security Scan
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: ${{ steps.grype-scan.outputs.sarif }}
+
+  
+  build-image-and-test:
+    name: Build Docker Image And Test Dependancy
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read 
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build Docker Image
+        run: | 
+           docker build . -t juiceshop:latest
+      - name: Scan for SARIF Report
+        uses: aquasecurity/trivy-action@0.33.0
+        with:
+          image-ref: 'juiceshop:latest'
+          format: 'template'
+          template: '@/contrib/sarif.tpl'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
+      - name: Scan and Print Table to Log
+        uses: aquasecurity/trivy-action@0.33.0
+        with:
+          image-ref: 'juiceshop:latest'
+          format: 'table'
+          severity: 'HIGH,CRITICAL'
+          exit-code: '0'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  hadolint:
+    name: "Hadolint - Dockerfile Linting"
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download all scan artifacts
-        uses: actions/download-artifact@v4
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        continue-on-error: true
         with:
-          path: security-reports/
+          dockerfile: Dockerfile
+          failure-threshold: warning
+          format: sarif
+          output-file: hadolint-results.sarif
 
-      - name: Generate comprehensive report
-        run: |
-          cat << 'EOF' > SECURITY_REPORT.md
-          # Security Scan Report
-
-          **Pipeline Run**: ${{ github.run_number }}
-          **Date**: $(date)
-          **Branch**: ${{ github.ref_name }}
-          **Commit**: ${{ github.sha }}
-
-          ## Summary
-
-          | Component | Status | Details |
-          |-----------|--------|---------|
-          | SAST Scanning | ${{ needs.security-gate.result }} | Semgrep, SonarCloud, TruffleHog |
-          | DAST Scanning | ${{ needs.security-gate.result }} | OWASP ZAP, API Tests |
-          | Container Security | ${{ needs.security-gate.result }} | Trivy, Grype, Hadolint |
-          | Dependency Security | ${{ needs.security-gate.result }} | OWASP DC, Snyk, SBOM |
-          | Staging Deployment | ${{ needs.deploy-staging.result }} | AWS Staging |
-          | Production Deployment | ${{ needs.deploy-production.result }} | AWS Production |
-
-          ## Deployment Status
-
-          - **Staging**: ${{ needs.deploy-staging.result }}
-          - **Production**: ${{ needs.deploy-production.result }}
-
-          ## Notes
-
-          This is an intentionally vulnerable application used for security training.
-          All findings are documented in the workflow artifacts.
-
-          ---
-          *Generated by Enhanced Security Pipeline*
-          EOF
-
-          cat SECURITY_REPORT.md
-
-      - name: Upload documentation report
-        uses: actions/upload-artifact@v4
+      - name: Upload Hadolint results
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
-          name: security-documentation
-          path: SECURITY_REPORT.md
+          sarif_file: hadolint-results.sarif
+  zap_scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Juice Shop
+        run: |
+          docker run -d -p 3000:3000 --name juice-shop bkimminich/juice-shop
+          sleep 40
+
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          mkdir -p zap-results
+          chmod 777 zap-results
+          docker run --user root --network="host" \
+            -v ${{ github.workspace }}/zap-results:/zap/wrk/:rw \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://localhost:3000 \
+            -r zap-report.html || true
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZAP-DAST-Report
+          path: zap-results/zap-report.html
+
+  semgrep:
+    name: "Semgrep - Code Scanning"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        continue-on-error: true # Don't fail pipeline
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+
+      - name: Upload Semgrep results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  sonarcloud:
+    name: "SonarCloud - Code Quality"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests with coverage
+        continue-on-error: true
+        run: npm test 2>&1 || true
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=your-team_juice-shop
+            -Dsonar.organization=your-team-org
+
+  secret-scanning:
+    name: "TruffleHog - Secret Detection"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog Scan
+        uses: trufflesecurity/trufflehog@main
+        continue-on-error: true
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --only-verified
+        
+  deploy-to-aws-ec2:
+    name: "Deploy to AWS ${{ inputs.environment || 'staging' }}"
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment || 'staging' }}
+      url: ${{ inputs.environment == 'production' && 'https://prod.your-team.juice-shop.com' || 'https://staging.your-team.juice-shop.com' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          echo "🐳 Building Docker image..."
+          docker build -t dinhtrkien/owasp-juice-shop:latest \
+                       -t dinhtrkien/owasp-juice-shop:${{ github.sha }} \
+                       -t dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }} .
+
+      - name: Push image to Docker Hub
+        run: |
+          echo "📤 Pushing Docker image to Docker Hub..."
+          docker push dinhtrkien/owasp-juice-shop:latest
+          docker push dinhtrkien/owasp-juice-shop:${{ github.sha }}
+          docker push dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }}
+
+      - name: SSH to EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🚀 Deploying to EC2..."
+
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            # Pull latest image
+            docker pull dinhtrkien/owasp-juice-shop:latest
+
+            # Stop and remove old container
+            docker stop juice-shop || true
+            docker rm juice-shop || true
+
+            # Run new container
+            docker run -d --name juice-shop -p 80:3000 dinhtrkien/owasp-juice-shop:latest
+
+            echo "✅ Container started successfully"
+
+      # - name: Health check
+      #   run: |
+      #     echo "🏥 Performing health check..."
+      #     sleep 10
+
+      #     # Check if deployment is healthy
+      #     DEPLOY_URL="${{ inputs.environment == 'production' && secrets.PROD_URL || secrets.STAGING_URL }}"
+
+      #     if [ ! -z "$DEPLOY_URL" ]; then
+      #       curl -f $DEPLOY_URL/rest/admin/application-version || echo "⚠️ Health check needs configuration"
+      #     fi
+
+      #     echo "✅ Deployment health check completed"
+
+      - name: Post deployment summary
+        run: |
+          echo "📊 Deployment Summary"
+          echo "===================="
+          echo "Environment: ${{ inputs.environment || 'staging' }}"
+          echo "Docker Image: dinhtrkien/owasp-juice-shop:latest"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "===================="
