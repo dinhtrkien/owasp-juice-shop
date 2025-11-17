@@ -6,6 +6,7 @@ on:
   push:
     branches: 
       - 'feature/hoang_anh'
+      - 'dev'
 
 env:
   IMAGE_TO_SCAN: dinhtrkien/owasp-juice-shop:latest
