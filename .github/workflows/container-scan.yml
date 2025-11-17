@@ -1,14 +1,17 @@
-name: "Container Security Scanning"
-
 # Dat's workflow - Container and Image Security
 # This workflow is called by security-enhanced.yml OR can run independently
 
+name: "Container Security Scanning"
+
 on:
-  workflow_call: # Called by main pipeline
-  workflow_dispatch: # Can be triggered manually
+  workflow_call:
+  workflow_dispatch:
   push:
     branches:
       - feature/dat
+
+permissions:
+  security-events: write
 
 jobs:
   trivy-scan:
@@ -31,7 +34,7 @@ jobs:
           severity: "CRITICAL,HIGH,MEDIUM"
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
@@ -71,7 +74,7 @@ jobs:
           severity-cutoff: high
 
       - name: Upload Grype results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}
@@ -93,7 +96,7 @@ jobs:
           output-file: hadolint-results.sarif
 
       - name: Upload Hadolint results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: hadolint-results.sarif
