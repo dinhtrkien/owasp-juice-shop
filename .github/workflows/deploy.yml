@@ -1,0 +1,100 @@
+name: "Deployment to AWS"
+
+# Kien's workflow - Continuous Delivery to AWS
+# This workflow is called by security-enhanced.yml OR can run independently
+
+on:
+  workflow_call: # Called by main pipeline
+    inputs:
+      environment:
+        description: "Deployment environment (staging or production)"
+        required: true
+        type: string
+  push:
+    branches:
+      - feature/kien
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  deploy-to-aws-ec2:
+    name: "Deploy to AWS ${{ inputs.environment || 'staging' }}"
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment || 'staging' }}
+      url: ${{ inputs.environment == 'production' && 'https://prod.your-team.juice-shop.com' || 'https://staging.your-team.juice-shop.com' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        run: |
+          echo "🐳 Building Docker image..."
+          docker build -t dinhtrkien/owasp-juice-shop:latest \
+                       -t dinhtrkien/owasp-juice-shop:${{ github.sha }} \
+                       -t dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }} .
+
+      - name: Push image to Docker Hub
+        run: |
+          echo "📤 Pushing Docker image to Docker Hub..."
+          docker push dinhtrkien/owasp-juice-shop:latest
+          docker push dinhtrkien/owasp-juice-shop:${{ github.sha }}
+          docker push dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }}
+
+      - name: SSH to EC2 and deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🚀 Deploying to EC2..."
+
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            # Pull latest image
+            docker pull dinhtrkien/owasp-juice-shop:latest
+
+            # Stop and remove old container
+            docker stop juice-shop || true
+            docker rm juice-shop || true
+
+            # Run new container
+            docker run -d --name juice-shop -p 80:3000 dinhtrkien/owasp-juice-shop:latest
+
+            echo "✅ Container started successfully"
+
+      # - name: Health check
+      #   run: |
+      #     echo "🏥 Performing health check..."
+      #     sleep 10
+
+      #     # Check if deployment is healthy
+      #     DEPLOY_URL="${{ inputs.environment == 'production' && secrets.PROD_URL || secrets.STAGING_URL }}"
+
+      #     if [ ! -z "$DEPLOY_URL" ]; then
+      #       curl -f $DEPLOY_URL/rest/admin/application-version || echo "⚠️ Health check needs configuration"
+      #     fi
+
+      #     echo "✅ Deployment health check completed"
+
+      - name: Post deployment summary
+        run: |
+          echo "📊 Deployment Summary"
+          echo "===================="
+          echo "Environment: ${{ inputs.environment || 'staging' }}"
+          echo "Docker Image: dinhtrkien/owasp-juice-shop:latest"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "===================="
