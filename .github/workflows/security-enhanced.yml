@@ -17,7 +17,9 @@ jobs:
   dast-scan:
     uses: ./.github/workflows/dast-scan.yml
     secrets: inherit
-
+  sast-scan:
+    uses: ./.github/workflows/sast-scan.yml
+    secrets: inherit
   dependency-scan:
     uses: ./.github/workflows/dependency-scan.yml
     secrets: inherit

@@ -49,44 +49,44 @@ jobs:
         with:
           sarif_file: snyk.sarif
 
-  owasp-dependency-check:
-    name: OWASP Dependency-Check Scan
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      contents: read
+  # owasp-dependency-check:
+  #   name: OWASP Dependency-Check Scan
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     security-events: write
+  #     contents: read
     
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Setup Node.js and install dependencies
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-      - run: npm ci --legacy-peer-deps
-      - name: Run OWASP Dependency-Check Scan
-        uses: dependency-check/Dependency-Check_Action@main
-        continue-on-error: true
-        with:
-          project: '${{ github.event.repository.name }}'
-          path: '.'
-          format: 'SARIF'
-        # Chúng ta biết chắc file sẽ được tạo ra trong thư mục này
-          out: './reports'
-          args: >
-             --exclude "**/frontend/dist/**"
-             --exclude "**/ftp/**"
-             --exclude "**/owasp_promo.vtt"
-             --exclude "**/legal.md"
+  #     - name: Setup Node.js and install dependencies
+  #       uses: actions/setup-node@v3
+  #       with:
+  #         node-version: '20.x'
+  #         cache: 'npm'
+  #     - run: npm ci --legacy-peer-deps
+  #     - name: Run OWASP Dependency-Check Scan
+  #       uses: dependency-check/Dependency-Check_Action@main
+  #       continue-on-error: true
+  #       with:
+  #         project: '${{ github.event.repository.name }}'
+  #         path: '.'
+  #         format: 'SARIF'
+  #       # Chúng ta biết chắc file sẽ được tạo ra trong thư mục này
+  #         out: './reports'
+  #         args: >
+  #            --exclude "**/frontend/dist/**"
+  #            --exclude "**/ftp/**"
+  #            --exclude "**/owasp_promo.vtt"
+  #            --exclude "**/legal.md"
     
    
-      - name: Upload OWASP Dependency-Check results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: './reports/dependency-check-report.sarif'
-          category: owasp-dependency-check
+  #     - name: Upload OWASP Dependency-Check results to GitHub Security
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: './reports/dependency-check-report.sarif'
+  #         category: owasp-dependency-check
   
   generate-sbom:
     name: Generate SBOM and Scan
