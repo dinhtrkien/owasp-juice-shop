@@ -4,11 +4,25 @@ name: Scan Image on Staging EC2
 # Kích hoạt workflow khi có push lên các nhánh bắt đầu bằng 'feature/'
 on:
   push:
-    branches: 
+    branches:
       - 'feature/hoang_anh'
+  # Make this workflow reusable by other workflows
+  workflow_call:
+    inputs:
+      image_to_scan:
+        description: 'Image to scan'
+        required: false
+        default: 'dinhtrkien/owasp-juice-shop:latest'
+    secrets:
+      EC2_HOST:
+        required: true
+      EC2_SSH_KEY:
+        required: true
+      SNYK_TOKEN:
+        required: false
 
 env:
-  IMAGE_TO_SCAN: dinhtrkien/owasp-juice-shop:latest
+  IMAGE_TO_SCAN: ${{ inputs.image_to_scan }}
 
 jobs:
   # ------ JOB 1: Quét bằng TRIVY ------
