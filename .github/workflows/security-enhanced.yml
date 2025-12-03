@@ -29,6 +29,9 @@ jobs:
   container-scan:
     uses: ./.github/workflows/container-scan.yml
     secrets: inherit
+    permissions:
+      security-events: write
+      contents: read
 
   sca-image-ec2:
     uses: ./.github/workflows/SCA_Image.yml
