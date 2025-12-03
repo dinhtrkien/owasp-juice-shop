@@ -21,6 +21,10 @@ jobs:
   dependency-scan:
     uses: ./.github/workflows/dependency-scan.yml
     secrets: inherit
+    permissions:
+      security-events: write
+      contents: read
+      packages: read
 
   container-scan:
     uses: ./.github/workflows/container-scan.yml
