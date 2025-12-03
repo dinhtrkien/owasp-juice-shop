@@ -11,6 +11,7 @@ on:
     inputs:
       image_to_scan:
         description: 'Image to scan'
+        type: string
         required: false
         default: 'dinhtrkien/owasp-juice-shop:latest'
     secrets:
