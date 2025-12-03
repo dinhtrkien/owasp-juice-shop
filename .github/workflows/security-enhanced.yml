@@ -40,7 +40,7 @@ jobs:
   deploy:
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
-    inputs:
+    with:
       environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     needs:
       - dast-scan
