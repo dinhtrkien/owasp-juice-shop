@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - feature/truong
+  # Allow this workflow to be called by other reusable workflows
+  workflow_call: {}
 
 jobs:
   zap_scan:
