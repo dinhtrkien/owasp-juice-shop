@@ -1,4 +1,4 @@
-name: SBOM and Image Security Scan
+name: SCA Scan
 
 on:
   workflow_call: # Called by main pipeline
