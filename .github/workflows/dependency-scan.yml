@@ -60,7 +60,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js and install dependencies
         uses: actions/setup-node@v3
         with:
@@ -74,15 +73,12 @@ jobs:
           project: '${{ github.event.repository.name }}'
           path: '.'
           format: 'SARIF'
-        # Chúng ta biết chắc file sẽ được tạo ra trong thư mục này
           out: './reports'
           args: >
              --exclude "**/frontend/dist/**"
              --exclude "**/ftp/**"
              --exclude "**/owasp_promo.vtt"
              --exclude "**/legal.md"
-    
-   
       - name: Upload OWASP Dependency-Check results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         with:
@@ -105,7 +101,6 @@ jobs:
           format: spdx-json
           output-file: "sbom.json" 
       - name: Run Grype vulnerability scanner on sbom 
-    # Sử dụng action chính thức của Grype
         id: grype-scan
         uses: anchore/scan-action@v6
         continue-on-error: true
@@ -119,44 +114,7 @@ jobs:
           sarif_file: ${{ steps.grype-scan.outputs.sarif }}
 
   
-  build-image-and-test:
-    name: Build Docker Image And Test Dependancy
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      packages: read 
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Build Docker Image
-        run: | 
-           docker build . -t juiceshop:latest
-      - name: Scan for SARIF Report
-        uses: aquasecurity/trivy-action@0.33.0
-        with:
-          image-ref: 'juiceshop:latest'
-          format: 'template'
-          template: '@/contrib/sarif.tpl'
-          output: 'trivy-results.sarif'
-          severity: 'HIGH,CRITICAL'
-          exit-code: '0'
-      - name: Scan and Print Table to Log
-        uses: aquasecurity/trivy-action@0.33.0
-        with:
-          image-ref: 'juiceshop:latest'
-          format: 'table'
-          severity: 'HIGH,CRITICAL'
-          exit-code: '0'
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-
-
+  
 
 
 
