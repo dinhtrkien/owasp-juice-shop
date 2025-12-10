@@ -94,8 +94,7 @@ jobs:
             fi
 
             # 2. Chạy Snyk scan
-            echo "🔍 Running Snyk scan..."
-            snyk container test ${{ env.IMAGE_TO_SCAN }} --severity-threshold=high
+            echo "Snyk Scan OS & Kernel"
+            snyk test --os --severity-threshold=high --json=false
             
-            echo "✅ Snyk scan completed successfully."
          
