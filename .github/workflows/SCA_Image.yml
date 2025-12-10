@@ -1,7 +1,6 @@
-# BẮT BUỘC: Đặt tên cho toàn bộ workflow
-name: Scan Image on Staging EC2
 
-# Kích hoạt workflow khi có push lên các nhánh bắt đầu bằng 'feature/'
+name: Scan OS and Kernel on EC2
+
 on:
   push:
     branches: 
@@ -42,6 +41,7 @@ jobs:
             fi
 
             curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh
-            sudo trivy rootfs /
+            sudo trivy rootfs / --scanners vuln --format table --severity HIGH,CRITICAL
+
 
   
