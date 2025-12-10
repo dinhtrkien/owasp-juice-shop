@@ -1,0 +1,83 @@
+name: "Build and Push Docker Image"
+
+# Build Docker image and push to Docker Hub
+# This workflow is called by security-enhanced.yml OR can run independently
+
+on:
+  workflow_call: # Called by main pipeline
+    inputs:
+      environment:
+        description: "Build environment (staging or production)"
+        required: false
+        type: string
+        default: 'staging'
+    outputs:
+      image-tag:
+        description: "Docker image tag that was built"
+        value: ${{ jobs.build-and-push.outputs.image-tag }}
+  workflow_dispatch: # Can be triggered manually
+    inputs:
+      environment:
+        description: "Build environment (staging or production)"
+        required: false
+        type: choice
+        options:
+          - staging
+          - production
+        default: 'staging'
+  push:
+    branches:
+      - feature/kien
+      - feature/som
+
+env:
+  NODE_VERSION: 22
+  DOCKER_IMAGE: dinhtrkien/owasp-juice-shop
+
+jobs:
+  build-and-push:
+    name: "Build and Push Docker Image"
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build Docker image
+        id: meta
+        run: |
+          echo "🐳 Building Docker image..."
+          docker build -t ${{ env.DOCKER_IMAGE }}:latest \
+                       -t ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
+                       -t ${{ env.DOCKER_IMAGE }}:${{ inputs.environment || 'staging' }} .
+          
+          echo "tags=${{ env.DOCKER_IMAGE }}:latest" >> $GITHUB_OUTPUT
+
+      - name: Push image to Docker Hub
+        run: |
+          echo "📤 Pushing Docker image to Docker Hub..."
+          docker push ${{ env.DOCKER_IMAGE }}:latest
+          docker push ${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          docker push ${{ env.DOCKER_IMAGE }}:${{ inputs.environment || 'staging' }}
+
+      - name: Build summary
+        run: |
+          echo "📦 Build Summary"
+          echo "===================="
+          echo "Docker Image: ${{ env.DOCKER_IMAGE }}:latest"
+          echo "Environment Tag: ${{ env.DOCKER_IMAGE }}:${{ inputs.environment || 'staging' }}"
+          echo "Commit Tag: ${{ env.DOCKER_IMAGE }}:${{ github.sha }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Built by: ${{ github.actor }}"
+          echo "===================="

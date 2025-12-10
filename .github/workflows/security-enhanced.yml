@@ -14,15 +14,29 @@ env:
   NODE_VERSION: 22
   IMAGE_TO_SCAN: dinhtrkien/owasp-juice-shop:latest
 jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+
   dast-scan:
     uses: ./.github/workflows/dast-scan.yml
     secrets: inherit
+    needs:
+      - build
+
   sast-scan:
     uses: ./.github/workflows/sast-scan.yml
     secrets: inherit
+    needs:
+      - build
+
   dependency-scan:
     uses: ./.github/workflows/dependency-scan.yml
     secrets: inherit
+    needs:
+      - build
     permissions:
       security-events: write
       contents: read
@@ -31,6 +45,8 @@ jobs:
   container-scan:
     uses: ./.github/workflows/container-scan.yml
     secrets: inherit
+    needs:
+      - build
     permissions:
       security-events: write
       contents: read
@@ -38,6 +54,8 @@ jobs:
   sca-image-ec2:
     uses: ./.github/workflows/SCA_Image.yml
     secrets: inherit
+    needs:
+      - build
 
   deploy:
     uses: ./.github/workflows/deploy.yml
@@ -45,7 +63,9 @@ jobs:
     with:
       environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
     needs:
+      - build
       - dast-scan
+      - sast-scan
       - dependency-scan
       - container-scan
       - sca-image-ec2

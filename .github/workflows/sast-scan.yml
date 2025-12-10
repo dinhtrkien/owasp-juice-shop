@@ -22,7 +22,7 @@ jobs:
       - uses: sonarsource/sonarqube-scan-action@master
         env:
           SONAR_TOKEN: sqp_98f75b5f48677f259cebcc3fbc1765544040c724
-          SONAR_HOST_URL: http://34.238.49.167:9000
+          SONAR_HOST_URL: http://35.172.114.185:9000
         with:
           args: >
             -Dsonar.projectKey=juice-shop

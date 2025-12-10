@@ -28,28 +28,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Build Docker image
-        run: |
-          echo "🐳 Building Docker image..."
-          docker build -t dinhtrkien/owasp-juice-shop:latest \
-                       -t dinhtrkien/owasp-juice-shop:${{ github.sha }} \
-                       -t dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }} .
-
-      - name: Push image to Docker Hub
-        run: |
-          echo "📤 Pushing Docker image to Docker Hub..."
-          docker push dinhtrkien/owasp-juice-shop:latest
-          docker push dinhtrkien/owasp-juice-shop:${{ github.sha }}
-          docker push dinhtrkien/owasp-juice-shop:${{ inputs.environment || 'staging' }}
-
       - name: SSH to EC2 and deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
