@@ -31,7 +31,7 @@ jobs:
             
             set -e # Dừng ngay lập tức nếu có lỗi
 
-            echo "🚀 Scanning ${{ env.IMAGE_TO_SCAN }} with Trivy..."
+            echo "Scanning ${{ env.IMAGE_TO_SCAN }} with Trivy..."
 
             # 1. Cài đặt Trivy nếu cần
             if ! command -v trivy &> /dev/null
