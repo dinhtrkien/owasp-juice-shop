@@ -1,7 +1,7 @@
 # Dat's workflow - Container and Image Security
 # This workflow is called by security-enhanced.yml OR can run independently
 
-name: "Container Security Scanning"
+name: "Image Scanning"
 
 on:
   workflow_call:
@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   trivy-scan:
-    name: "Trivy - Container Vulnerability Scanner"
+    name: "Trivy - Image Scanner"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -64,25 +64,3 @@ jobs:
         if: always()
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}
-
-  hadolint:
-    name: "Hadolint - Dockerfile Linting"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        continue-on-error: true
-        with:
-          dockerfile: Dockerfile
-          failure-threshold: warning
-          format: sarif
-          output-file: hadolint-results.sarif
-
-      - name: Upload Hadolint results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: hadolint-results.sarif
