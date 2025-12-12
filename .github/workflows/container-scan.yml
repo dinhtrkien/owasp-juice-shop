@@ -24,7 +24,7 @@ jobs:
       - name: Build Docker image
         run: docker build -t juice-shop:scan .
 
-      - name: Run Trivy vulnerability scanner (SARIF)
+      - name: Run Trivyy vulnerability scanner (SARIF)
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
